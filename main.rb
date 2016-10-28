@@ -72,7 +72,7 @@ def derive_port name
 end
 
 # Expose ports as needed
-opts[:port].each do |couple|
+(opts[:port] || []).each do |couple|
   (name, port) = couple.split(':')
 
   # Skip if the port isn't in NOMAD_PORT_*
@@ -94,8 +94,9 @@ end
 end
 
 # Additional network aliases
-opts[:alias].each do |name|
+(opts[:alias] || []).each do |name|
   options << "--network-alias=#{name}"
 end
 
-exec "/usr/bin/docker", "run", "--rm", *options, image, opts.arguments
+puts "/usr/bin/docker", "run", "--rm", *options, image, *opts.arguments
+exec "/usr/bin/docker", "run", "--rm", *options, image, *opts.arguments
