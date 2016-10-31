@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 
+require 'socket'
 require_relative 'bundle/bundler/setup'
 require 'slop'
 require_relative 'ext/slop'
