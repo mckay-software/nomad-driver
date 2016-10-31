@@ -36,14 +36,20 @@ options = [
   # Imitate Nomad naming scheme
   "--name=#{ENV['NOMAD_TASK_NAME']}-#{ENV['NOMAD_ALLOC_ID']}",
 
-  # Set resource limits
-  "--cpu-shares=#{ENV['NOMAD_CPU_LIMIT']}",
-  "--memory=#{ENV['NOMAD_MEMORY_LIMIT']}m",
-
   # Bind nomad task and alloc dirs
   "--volume=#{ENV['NOMAD_ALLOC_DIR']}:/alloc",
   "--volume=#{ENV['NOMAD_TASK_DIR']}:/local",
 ]
+
+# Only set CPU limit if it's not the default
+if ENV['NOMAD_CPU_LIMIT'].to_s != '100'
+  options << "--cpu-shares=#{ENV['NOMAD_CPU_LIMIT']}"
+end
+
+# Only set RAM limit if it's not the default
+if ENV['NOMAD_MEMORY_LIMIT'].to_s != '10'
+  options << "--memory=#{ENV['NOMAD_MEMORY_LIMIT']}m"
+end
 
 # Parse Job/Group/Task/ID
 (job, group) = ENV['NOMAD_ALLOC_NAME'].split('.')
