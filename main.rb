@@ -98,5 +98,7 @@ end
   options << "--network-alias=#{name}"
 end
 
-puts "/usr/bin/docker", "run", "--rm", *options, image, *opts.arguments
-exec "/usr/bin/docker", "run", "--rm", *options, image, *opts.arguments
+
+final = ["/usr/bin/docker", "run", "--rm", *options, image, *opts.arguments]
+puts *final
+exec *final
