@@ -6,18 +6,24 @@ require 'slop'
 require_relative 'ext/slop'
 
 opts = Slop.parse do |o|
+  o.banner = 'Usage: driver/main.rb [options] <image> [-- arguments]'
   o.separator "Options:"
 
-  o.multi '-a', '--alias', 'additional network alias'
+  o.bool '-h', '--help', 'this help message'
+
+  o.multi '--alias', 'additional network alias'
   o.separator ''
 
-  o.multi '-p', '--port', 'port to expose, format name[:number]'
+  o.string '--network', 'networking mode', default: 'overlay'
+
+  o.multi '--port', 'port to expose, format name[:number]'
   o.null 'If number is not supplied, it will be derived from the name'
   o.null 'e.g. `--port http` is equivalent to `--port http:80`.'
   o.separator ''
 
-  o.banner = 'Usage: driver/main.rb [options] <image> [-- arguments]'
-  o.bool '-h', '--help', 'this help message'
+  o.bool '--system', 'enable host networking, privileged mode, and host PID'
+
+  o.multi '--volume', 'additional volume binding'
 end
 
 if opts.help? or opts.arguments.count < 1
@@ -30,9 +36,6 @@ image = opts.arguments.shift
 
 # Docker option list
 options = [
-  # Use the pan-cluster network
-  '--network=overlay',
-
   # Imitate Nomad naming scheme
   "--name=#{ENV['NOMAD_TASK_NAME']}-#{ENV['NOMAD_ALLOC_ID']}",
 
@@ -40,6 +43,20 @@ options = [
   "--volume=#{ENV['NOMAD_ALLOC_DIR']}:/alloc",
   "--volume=#{ENV['NOMAD_TASK_DIR']}:/local",
 ]
+
+if opts.system?
+  # Use the host's networking stack
+  opts[:network] = 'host'
+
+  # Enable privileged mode
+  options << '--privileged'
+
+  # Use host's PID namespace
+  options << '--pid=host'
+end
+
+# Set the network mode/name (defaults to overlay)
+options << "--network=#{opts[:network]}"
 
 # Only set CPU limit if it's not the default
 if ENV['NOMAD_CPU_LIMIT'].to_s != '100'
@@ -93,16 +110,24 @@ end
   options << "#{ENV["NOMAD_PORT_#{name}"]}:#{port}"
 end
 
-# Automatic service network aliases
-[job, group, task, "n#{id}"].reduce([]) do |memo, name|
-  memo << name
-  options << "--network-alias=#{memo.reverse.join('.')}"
-  memo
+# Network aliases are only available on user-defined networks
+unless %w[host bridged none].include? opts[:network]
+  # Automatic service network aliases
+  [job, group, task, "n#{id}"].reduce([]) do |memo, name|
+    memo << name
+    options << "--network-alias=#{memo.reverse.join('.')}"
+    memo
+  end
+
+  # Additional network aliases
+  (opts[:alias] || []).each do |name|
+    options << "--network-alias=#{name}"
+  end
 end
 
-# Additional network aliases
-(opts[:alias] || []).each do |name|
-  options << "--network-alias=#{name}"
+# Additional volumes
+(opts[:volume] || []).each do |definition|
+  options << "--volume=#{definition}"
 end
 
 
